@@ -25,11 +25,11 @@ class AttentionMIL(nn.Module):
         # Feature extractor network
         self.feature_extractor = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            # nn.LayerNorm(hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, hidden_dim),
-            # nn.LayerNorm(hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout)
         )
@@ -43,10 +43,10 @@ class AttentionMIL(nn.Module):
         
         if self.use_sample_source:
             self.classifier = nn.Sequential(
-                nn.Linear(hidden_dim + sample_source_dim, hidden_dim),
+                nn.Linear(hidden_dim + sample_source_dim, hidden_dim//2),
                 nn.ReLU(),
                 nn.Dropout(dropout),
-                nn.Linear(hidden_dim, num_classes)
+                nn.Linear(hidden_dim//2, num_classes)
             )
         else:
             # Classifier
@@ -64,7 +64,6 @@ class AttentionMIL(nn.Module):
         Parameters:
         - x: Input bag of instances [batch_size, num_instances, features]
         - return_attention: Whether to return attention weights
-        - sample_source: One-hot encoded
         
         Returns:
         - logits: Class logits [batch_size, num_classes]
@@ -96,31 +95,28 @@ class AttentionMIL(nn.Module):
             
 
             #########################################################
-            ########## Add sample source if provided ################
+            ########## Add sample source if provided #################
             #########################################################
             if self.use_sample_source and sample_source is not None:
-                # Print shape and example values for debugging
-                print(f"Sample source shape: {sample_source.shape}")
-                print(f"Example sample source value: {sample_source[0]}")
-            # get the sample source for this patient
-                sample_source_i = sample_source[i]
-
-                # Verify sample_source_i has the expected dimension
-                if len(sample_source_i) != 4:
-                    print(f"Warning: sample_source dimension mismatch. Expected {4}, got {len(sample_source_i)}")
                 
-                # weighted_features shape: [hidden_dim] (e.g. [128])
-                # sample_source_i shape: [4] 
-                # Need to unsqueeze to match dimensions
-                weighted_features = weighted_features.unsqueeze(0)  # Shape: [1, hidden_dim]
-                sample_source_i = sample_source_i.unsqueeze(0)     # Shape: [1, 4]
-                # Concatenate along dim=1 since we're joining features
-                combined_features = torch.cat([weighted_features, sample_source_i], dim=1)  # Shape: [1, hidden_dim + 4]
-                combined_features = combined_features.squeeze(0)    # Back to [hidden_dim + 4] for classifier
+            # get the sample source for this patient
+                sample_source_i = sample_source.squeeze(0)
+                # print(f"Patient: {patient}")
+                # # Print shape and example values for debugging
+                # print(f"Sample source shape: {sample_source.shape}")
+                # print(f"Example sample source value: {sample_source[0]}")
+                # print(f"Sample source shape: {weighted_features.shape}")
+                
+                combined_features = torch.cat([weighted_features, sample_source_i], dim=0)
+                # print(f"combined_features shape: {combined_features.shape}")
                 logits = self.classifier(combined_features)
             
             else:
                 logits = self.classifier(weighted_features)
+                
+            all_logits.append(logits)
+            all_attention_weights.append(attention_weights)
+        
         # Stack results
         logits = torch.stack(all_logits)  # [batch_size, num_classes]
         attention_weights = all_attention_weights  # List of [num_instances, 1]
