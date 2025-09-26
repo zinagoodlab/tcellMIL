@@ -1,1 +1,1 @@
-This branch houses updated scripts for (1) SHAP analysis -- see SHAP_analysis for details and (2) Cell type enrichment analysis.
+This branch houses updated scripts (AI4D3 version) for (1) SHAP analysis and (2) Cell type enrichment analysis. -- see their respective folder for details
