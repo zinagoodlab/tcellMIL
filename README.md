@@ -1,11 +1,11 @@
 # tcellMIL Framework
 
-A deep learning framework for T-cell response prediction using Multiple Instance Learning (MIL) on single-cell regulatory network data.
+A computational framework for CAR T cell therapy response prediction using Multiple Instance Learning (MIL) on single-cell regulatory network data.
 
 ## Overview
 
 The tcellMIL framework consists of two main components:
-1. **Autoencoder**: Reduces dimensionality of SCENIC AUC matrices
+1. **Autoencoder**: Performs feature denoising of SCENIC AUC matrices
 2. **Attention-based MIL**: Predicts patient-level responses using attention mechanisms
 
 ## Data Requirements
