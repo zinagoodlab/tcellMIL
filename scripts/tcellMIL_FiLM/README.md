@@ -6,17 +6,8 @@ activity, plus an **in-silico TF-perturbation** engine that probes the trained
 model.
 
 This is a focused, code-only subset: the FiLM model, its checkpoint-export
-companion, and the perturbation engine. Input data, trained checkpoints,
-results, and figures are **not** distributed here (see *Inputs* below).
+companion, and the perturbation engine. 
 
-## Headline result
-
-Leave-one-patient-out cross-validation, 3 seeds (mean ± std):
-
-| Model | Accuracy | AUC | std (acc) |
-|---|---|---|---|
-| Baseline tcellMIL (no cohort metadata) | 0.6979 | 0.685 | 0.015 |
-| **Cohort-aware FiLM (this model)** | **0.7240** | **0.7360** | **0.009** |
 
 ## Method
 
@@ -38,7 +29,7 @@ as `h' = (1 + γ) ⊙ h + β` before classification. The FiLM linear layer is
 no-FiLM baseline. Anti-overfit hyperparameters tuned to N=64 patients:
 `dropout=0.4`, `max_epochs=60`, `weight_decay=0.1`.
 
-## Inputs (not included in this repo)
+## Inputs
 
 The scripts expect a **SCENIC AUCell h5ad** — one row per cell, TF-regulon
 activity in `X` — whose `obs` contains:
