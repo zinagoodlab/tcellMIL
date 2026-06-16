@@ -1,0 +1,15 @@
+# tcellMIL + FiLM — runtime dependencies (Python >= 3.10)
+# Install with uv:   uv pip install -r requirements.txt
+# or with pip:       pip install -r requirements.txt
+
+numpy
+pandas
+scipy
+scikit-learn
+scanpy
+torch
+
+# Optional — experiment tracking only. The scripts run without it: a no-op
+# shim activates automatically if wandb is absent or shadowed by a local
+# ./wandb directory, so installing it is not required to reproduce results.
+# wandb

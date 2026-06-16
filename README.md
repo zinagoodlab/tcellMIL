@@ -1,79 +1,95 @@
-# tcellMIL Framework
+# tcellMIL + cohort-aware FiLM
 
-A computational framework for CAR T cell therapy response prediction using Multiple Instance Learning (MIL) on single-cell regulatory network data.
+**tcellMIL** is a multiple-instance learning (MIL) framework that predicts durable (3-month) response to CAR T cell therapy from multi-cohort single-cell transcriptomic data, while retaining cell-state interpretability. It also enables in-silico perturbation of infusion-product cells to nominate genetic edits predicted to improve therapy outcome.
 
-## Overview
+Explore the underlying data at **https://tcellwarehouse.com/**
 
-The tcellMIL framework consists of two main components:
-1. **Autoencoder**: Performs feature denoising of SCENIC AUC matrices
-2. **Attention-based MIL**: Predicts patient-level responses using attention mechanisms
+## Installation
 
-## Data Requirements
+Requires **Python ≥ 3.10**.
 
-Your input data should be an `.h5ad` file containing:
-- SCENIC AUC matrix (cells × transcription factors)
-- Patient identifiers in `adata.obs['patient_id']`
-- Response labels in `adata.obs['Response_3m']` (values: "NR", "OR")
-- Optional: Sample source information in `adata.obs['Sample_source']`
+```bash
+git clone <repo-url>
+cd tcellMIL_multimodal/scripts/tcellMIL_FiLM
 
-## Quick Start
+# with uv (recommended)
+uv pip install -r requirements.txt
 
-### 1. Basic Training
-
-```python
-from train_tcellMIL import run_pipeline_loocv
-
-# Run complete pipeline with default parameters
-results = run_pipeline_loocv(
-    input_file='path/to/your/data.h5ad',
-    output_dir='results'
-)
+# or with pip
+pip install -r requirements.txt
 ```
 
-### 2. Custom Parameters
+This installs the runtime dependencies: `numpy`, `pandas`, `scipy`,
+`scikit-learn`, `scanpy`, and `torch`. `wandb` (experiment tracking) is optional —
+a no-op shim activates automatically if it is missing, so it is not required to
+run the model.
 
-```python
-results = run_pipeline_loocv(
-    input_file='path/to/your/data.h5ad',
-    output_dir='results',
-    latent_dim=64,           # Autoencoder latent dimension
-    num_epochs_ae=200,       # Autoencoder training epochs
-    num_epochs=50,           # MIL training epochs
-    num_classes=2,           # Number of response classes
-    hidden_dim=128,          # MIL hidden layer dimension
-    sample_source_dim=4      # Sample source encoding dimension
-)
+## What's here
+
+The code lives in [`scripts/tcellMIL_FiLM/`](scripts/tcellMIL_FiLM/):
+
+| File | Role |
+|---|---|
+| `cohort_aware_film.{py,sh}` | The cohort-aware FiLM model — training + LOOCV. Reports the headline accuracy. |
+| `save_checkpoints.{py,sh}` | Same model and pipeline, but exports per-fold checkpoints + a manifest (consumed by the perturbation engine). |
+| `insilico_perturbation.{py,sh}` | In-silico TF over-expression / knockdown over the trained checkpoints. |
+| `requirements.txt` | Runtime dependencies. |
+| `README.md` | Full reproducibility doc — input schema, method, ASCII pipeline, and run steps. |
+
+**See [`scripts/tcellMIL_FiLM/README.md`](scripts/tcellMIL_FiLM/README.md)** for
+the authoritative, step-by-step reproducibility guide. The summary below is an
+entry point.
+
+## Model overview
+
+```
+per-cell expression  ──►  Autoencoder  ──►  Attention-MIL pooling  ──►  cohort-aware FiLM  ──►  classifier
+ (SCENIC TF-regulon       (latent=48)      (bag embedding h, dim=64)         │                  (OR / NR)
+  activity, AUCell)                                                          │
+                          cohort one-hot (4-dim)  ──►  Linear(4 → 2·64)  ──►  (γ, β)
+                                                                             │
+                                                  h' = (1 + γ) ⊙ h + β  ◄────┘
 ```
 
-## Framework Architecture
+A FiLM layer sits between the Attention-MIL bag-level pooling and the classifier.
+For each patient, a one-hot of the source cohort is mapped by a single linear
+layer to per-cohort modulation parameters `(γ, β)`; the bag embedding `h` is
+residually modulated as `h' = (1 + γ) ⊙ h + β` before classification. The FiLM
+linear layer is **zero-initialized**, so at step 0 the model reduces to the
+no-FiLM model and learns cohort conditioning only if it helps. Hyperparameters
+are tuned for the small-N regime (N = 64 patients).
 
-### Autoencoder Training
-- Input: SCENIC AUC matrices (cells × TFs)
-- Output: Latent representations (cells × latent_dim)
-- Architecture: Encoder-Decoder with LayerNorm and Dropout
+## Input
 
-### MIL Training
-- Input: Patient bags (collections of latent cell representations)
-- Method: Leave-one-out cross-validation
-- Architecture: Attention-based MIL with optional sample source integration
-- Output: Patient-level response predictions
+The scripts expect a single-cell `h5ad` object whose `X` is a SCENIC
+cell × regulon (AUCell) activity matrix — generate your own with
+[pySCENIC](https://github.com/aertslab/pySCENIC). Expected metadata labels:
+
+| `obs` column | Used for |
+|---|---|
+| `patient_id` | bag / patient grouping (the unit of LOOCV) |
+| `Response_3m` | label — `"OR"` / `"NR"` (or numeric `1`/`0` in RNA-PCA mode) |
+| `Sample_source` | cohort one-hot for FiLM |
 
 
-## Key Features
+## Usage
 
-- **Leave-one-out cross-validation**: Robust evaluation for small patient cohorts
-- **Class balancing**: Automatic handling of imbalanced response classes
-- **Early stopping**: Prevents overfitting with patience-based stopping
-- **Attention visualization**: Provides interpretable attention weights
-- **GPU acceleration**: Automatic CUDA detection and usage
+```bash
+cd scripts/tcellMIL_FiLM
 
-## Dependencies
+# 1. Train + LOOCV (headline metric)
+TCMIL_H5AD=/path/to/scenic_auc.h5ad TCMIL_OUTDIR=/path/to/out/ \
+  python cohort_aware_film.py
 
-- PyTorch
-- Scanpy
-- Scikit-learn
-- NumPy
-- Matplotlib
+# 2. Export per-fold checkpoints (required before perturbation)
+python save_checkpoints.py
 
-## Citation
-Tsui K. C. Y.*, Rodrigues KB*, Zhan X*, Chen Y, Mo KC, Mackall CL, Miklos DB, Gevaert O§, Good Z§. (2025) Patient-level prediction from single-cell data using attention-based multiple instance learning with regulatory priors. The NeurIPS 2025 Workshop on AI Virtual Cells and Instruments: A New Era in Drug Discovery and Development (AI4D3 2025),
+# 3. In-silico TF perturbation over the trained checkpoints
+python insilico_perturbation.py \
+    --ckpt_output_dir /path/to/checkpoints/ \
+    --out_dir /path/to/perturbation_out/ \
+    --mad_multiplier 10   # perturbation size, in multiples of each regulon's MAD
+```
+
+The `.sh` launchers contain cluster-specific (SLURM) paths — adjust them, or run
+the Python entry points directly as above.
