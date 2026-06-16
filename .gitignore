@@ -1,0 +1,39 @@
+# Data files
+*.h5ad
+*.pkl
+*.rds
+*.rda
+*.RData
+*.mtx
+*.csv
+*.xlsx
+
+# Patient / clinical metadata — never commit
+Master_atlas_metadata.csv
+
+# Results directories
+**/results/
+wandb/
+
+# Large/generated files
+*.pdf
+*.eps
+*.png
+*.docx
+
+# LaTeX intermediates
+*.aux
+*.log
+*.synctex.gz
+
+# SLURM job logs
+*.out
+*.err
+
+# OS / IDE
+.DS_Store
+__pycache__/
+.ipynb_checkpoints/
+
+# Claude Code working files
+.claude/
